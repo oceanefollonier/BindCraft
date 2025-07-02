@@ -46,19 +46,19 @@ SECONDS=0
 
 # set paths needed for installation and check for conda installation
 install_dir=$(pwd)
-CONDA_BASE=$(conda info --base 2>/dev/null) || { echo -e "Error: conda is not installed or cannot be initialised."; exit 1; }
-echo -e "Conda is installed at: $CONDA_BASE"
+# CONDA_BASE=$(conda info --base 2>/dev/null) || { echo -e "Error: conda is not installed or cannot be initialised."; exit 1; }
+# echo -e "Conda is installed at: $CONDA_BASE"
 
 ### BindCraft install begin, create base environment
-echo -e "Installing BindCraft environment\n"
-$pkg_manager create --name BindCraft python=3.10 -y || { echo -e "Error: Failed to create BindCraft conda environment"; exit 1; }
-conda env list | grep -w 'BindCraft' >/dev/null 2>&1 || { echo -e "Error: Conda environment 'BindCraft' does not exist after creation."; exit 1; }
+echo -e "Installing BindCraft_git environment\n"
+$pkg_manager create --name BindCraft_git python=3.10 -y || { echo -e "Error: Failed to create BindCraft_git conda environment"; exit 1; }
+conda env list | grep -w 'BindCraft_git' >/dev/null 2>&1 || { echo -e "Error: Conda environment 'BindCraft_git' does not exist after creation."; exit 1; }
 
-# Load newly created BindCraft environment
-echo -e "Loading BindCraft environment\n"
-source ${CONDA_BASE}/bin/activate ${CONDA_BASE}/envs/BindCraft || { echo -e "Error: Failed to activate the BindCraft environment."; exit 1; }
-[ "$CONDA_DEFAULT_ENV" = "BindCraft" ] || { echo -e "Error: The BindCraft environment is not active."; exit 1; }
-echo -e "BindCraft environment activated at ${CONDA_BASE}/envs/BindCraft"
+# Load newly created BindCraft_git environment
+echo -e "Loading BindCraft_git environment\n"
+source /scicore/home/schwede/follon0000/mambaforge/bin/activate /scicore/home/schwede/follon0000/mambaforge/envs/BindCraft_git || { echo -e "Error: Failed to activate the BindCraft_git environment."; exit 1; } #${CONDA_BASE}
+[ "$CONDA_DEFAULT_ENV" = "BindCraft_git" ] || { echo -e "Error: The BindCraft_git environment is not active."; exit 1; }
+echo -e "BindCraft_git environment activated at /scicore/home/schwede/follon0000/mambaforge/envs/BindCraft_git"
 
 # install required conda packages
 echo -e "Instaling conda requirements\n"
@@ -91,21 +91,21 @@ echo -e "Installing ColabDesign\n"
 pip3 install git+https://github.com/sokrypton/ColabDesign.git --no-deps || { echo -e "Error: Failed to install ColabDesign"; exit 1; }
 python -c "import colabdesign" >/dev/null 2>&1 || { echo -e "Error: colabdesign module not found after installation"; exit 1; }
 
-# AlphaFold2 weights
-echo -e "Downloading AlphaFold2 model weights \n"
-params_dir="${install_dir}/params"
-params_file="${params_dir}/alphafold_params_2022-12-06.tar"
+# # AlphaFold2 weights
+# echo -e "Downloading AlphaFold2 model weights \n"
+# params_dir="${install_dir}/params"
+# params_file="${params_dir}/alphafold_params_2022-12-06.tar"
 
-# download AF2 weights
-mkdir -p "${params_dir}" || { echo -e "Error: Failed to create weights directory"; exit 1; }
-wget -O "${params_file}" "https://storage.googleapis.com/alphafold/alphafold_params_2022-12-06.tar" || { echo -e "Error: Failed to download AlphaFold2 weights"; exit 1; }
-[ -s "${params_file}" ] || { echo -e "Error: Could not locate downloaded AlphaFold2 weights"; exit 1; }
+# # download AF2 weights
+# mkdir -p "${params_dir}" || { echo -e "Error: Failed to create weights directory"; exit 1; }
+# wget -O "${params_file}" "https://storage.googleapis.com/alphafold/alphafold_params_2022-12-06.tar" || { echo -e "Error: Failed to download AlphaFold2 weights"; exit 1; }
+# [ -s "${params_file}" ] || { echo -e "Error: Could not locate downloaded AlphaFold2 weights"; exit 1; }
 
-# extract AF2 weights
-tar tf "${params_file}" >/dev/null 2>&1 || { echo -e "Error: Corrupt AlphaFold2 weights download"; exit 1; }
-tar -xvf "${params_file}" -C "${params_dir}" || { echo -e "Error: Failed to extract AlphaFold2weights"; exit 1; }
-[ -f "${params_dir}/params_model_5_ptm.npz" ] || { echo -e "Error: Could not locate extracted AlphaFold2 weights"; exit 1; }
-rm "${params_file}" || { echo -e "Warning: Failed to remove AlphaFold2 weights archive"; }
+# # extract AF2 weights
+# tar tf "${params_file}" >/dev/null 2>&1 || { echo -e "Error: Corrupt AlphaFold2 weights download"; exit 1; }
+# tar -xvf "${params_file}" -C "${params_dir}" || { echo -e "Error: Failed to extract AlphaFold2weights"; exit 1; }
+# [ -f "${params_dir}/params_model_5_ptm.npz" ] || { echo -e "Error: Could not locate extracted AlphaFold2 weights"; exit 1; }
+# rm "${params_file}" || { echo -e "Warning: Failed to remove AlphaFold2 weights archive"; }
 
 # chmod executables
 echo -e "Changing permissions for executables\n"
@@ -114,7 +114,7 @@ chmod +x "${install_dir}/functions/DAlphaBall.gcc" || { echo -e "Error: Failed t
 
 # finish
 conda deactivate
-echo -e "BindCraft environment set up\n"
+echo -e "BindCraft_git environment set up\n"
 
 ############################################################################################################
 ############################################################################################################
@@ -125,7 +125,7 @@ echo -e "$pkg_manager cleaned up\n"
 
 ################## finish script
 t=$SECONDS 
-echo -e "Successfully finished BindCraft installation!\n"
-echo -e "Activate environment using command: \"$pkg_manager activate BindCraft\""
+echo -e "Successfully finished BindCraft_git installation!\n"
+echo -e "Activate environment using command: \"$pkg_manager activate BindCraft_git\""
 echo -e "\n"
 echo -e "Installation took $(($t / 3600)) hours, $((($t / 60) % 60)) minutes and $(($t % 60)) seconds."

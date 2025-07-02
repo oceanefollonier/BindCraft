@@ -2,23 +2,30 @@
 #SBATCH --nodes 1
 #SBATCH --ntasks 1
 #SBATCH --cpus-per-task 1
-#SBATCH --partition=gpu
-#SBATCH --qos=gpu
+#SBATCH --partition=a100-80g,rtx4090
+#SBATCH --reservation=schwede
+#SBATCH --qos=gpu1day
 #SBATCH --gres=gpu:1
 #SBATCH --mem 42gb
-#SBATCH --time 72:00:00
+#SBATCH --time 24:00:00
 #SBATCH --output=bindcraft_%A.log
 
 # Initialise environment and modules
-CONDA_BASE=$(conda info --base)
-source ${CONDA_BASE}/bin/activate ${CONDA_BASE}/envs/BindCraft
+# CONDA_BASE=$(conda info --base)
+# source ${CONDA_BASE}/bin/activate ${CONDA_BASE}/envs/BindCraft
+export PATH=/scicore/home/schwede/follon0000/mambaforge/bin:$PATH
+source activate BindCraft_git
 export LD_LIBRARY_PATH=${CONDA_BASE}/lib
+
+# export JAX_CHECK_TRACER_LEAKS=1
+# export JAX_TRACEBACK_FILTERING=off
 
 # alternatively you can source the environment directly
 #source /path/to/mambaforge/bin/activate /path/to/mambaforge/envs/BindCraft
 
 # Get the directory where the bindcraft script is located
-SCRIPT_DIR=$(dirname "$0")
+#SCRIPT_DIR=$(dirname "$0")
+SCRIPT_DIR=$SLURM_SUBMIT_DIR
 
 # Parsing command line options
 SETTINGS=""
