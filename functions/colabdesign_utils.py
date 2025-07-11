@@ -27,7 +27,7 @@ def binder_hallucination(design_name, starting_pdb, chain, target_hotspot_residu
     # initialise binder hallucination model
     af_model = mk_afdesign_model(protocol="binder", debug=False, data_dir=advanced_settings["af_params_dir"], 
                                 use_multimer=advanced_settings["use_multimer_design"], num_recycles=advanced_settings["num_recycles_design"],
-                                best_metric='loss')
+                                best_metric='loss',crop=True)
 
     # sanity check for hotspots
     if target_hotspot_residues == "":
@@ -95,10 +95,11 @@ def binder_hallucination(design_name, starting_pdb, chain, target_hotspot_residu
         # initial logits to prescreen trajectory
         print("Stage 1: Test Logits")
         af_model.design_logits(iters=50, e_soft=0.9, models=design_models, num_models=1, sample_models=advanced_settings["sample_models"], save_best=True)
-
+        
         # determine pLDDT of best iteration according to lowest 'loss' value
         initial_plddt = get_best_plddt(af_model, length)
-        
+        print('saving temp pdb under', model_pdb_path)
+        af_model.save_pdb(model_pdb_path)
         # if best iteration has high enough confidence then continue
         if initial_plddt > 0.65:
             print("Initial trajectory pLDDT good, continuing: "+str(initial_plddt))
@@ -106,7 +107,7 @@ def binder_hallucination(design_name, starting_pdb, chain, target_hotspot_residu
                 # temporarily dump model to assess secondary structure
                 af_model.save_pdb(model_pdb_path)
                 _, beta, *_ = calc_ss_percentage(model_pdb_path, advanced_settings, 'B')
-                os.remove(model_pdb_path)
+                #os.remove(model_pdb_path)
 
                 # if beta sheeted trajectory is detected then choose to optimise
                 if float(beta) > 15:
@@ -151,10 +152,17 @@ def binder_hallucination(design_name, starting_pdb, chain, target_hotspot_residu
                 if onehot_plddt > 0.65:
                     # perform greedy mutation optimisation
                     print("One-hot trajectory pLDDT good, continuing: "+str(onehot_plddt))
-                    if advanced_settings["greedy_iterations"] > 0:
+                    # # af_model.opt["weights"].update({"crop":False})
+                    # af_model._cfg.model.embeddings_and_evoformer.crop = False
+                    # print('test: rerunning _get_model')
+                    # af_model._model = af_model._get_model(af_model._cfg)
+                    # print('test: after getting new model')
+                    if advanced_settings["greedy_iterations"] >= 1:
                         print("Stage 4: PSSM Semigreedy Optimisation")
+                        print('greedy_tries', greedy_tries)
                         af_model.design_pssm_semigreedy(soft_iters=0, hard_iters=advanced_settings["greedy_iterations"], tries=greedy_tries, models=design_models, 
                                                         num_models=1, sample_models=advanced_settings["sample_models"], ramp_models=False, save_best=True)
+                        af_model.save_pdb(model_pdb_path)
 
                 else:
                     update_failures(failure_csv, 'Trajectory_one-hot_pLDDT')
@@ -174,7 +182,32 @@ def binder_hallucination(design_name, starting_pdb, chain, target_hotspot_residu
         return
 
     ### save trajectory PDB
+    # first get the best structure with the full target
+    # print('final best',af_model._tmp["best"])
+
     final_plddt = get_best_plddt(af_model, length)
+    print("saving pre-final pdb under", model_pdb_path.replace(".pdb", "_pre-final.pdb"))
+    af_model.save_pdb(model_pdb_path.replace(".pdb", "_pre-final.pdb"))
+
+    af_model._cfg.model.embeddings_and_evoformer.crop = False
+    af_model._model = af_model._get_model(af_model._cfg)
+    af_model._args['recycle_mode'] = 'none'
+    print('in final, af_model._tmp["best"]', af_model._tmp["best"].keys())
+    if hasattr(af_model._tmp["best"],"aux"):
+      print('in final, getting seq from aux')
+      seq_final = af_model._tmp["best"].aux["seq"]["logits"].argmax(-1)
+      af_model.batch["dgram"] = af_model._tmp["best"].aux["dgram"]
+      af_model.batch["prev_pos"] = af_model._tmp["best"].aux["prev_pos"]
+      print('in final, all_atom_positions', af_model.batch["all_atom_positions"].shape, af_model._tmp["best"].aux["all_atom_positions"].shape)
+    else:
+      print('in final, getting seq from params and inputs')
+      seq_final = (af_model._params["seq"] + af_model._inputs["bias"]).argmax(-1)
+    af_model.predict(seq=seq_final, num_recycles=0, models=design_models, num_models=1, sample_models=advanced_settings["sample_models"], save_final=True)
+    print('after final prediction, save final model under path', model_pdb_path)
+    af_model.save_pdb(model_pdb_path)
+
+    final_plddt = get_best_plddt(af_model, length)
+    print("saving final pdb under", model_pdb_path)
     af_model.save_pdb(model_pdb_path)
     af_model.aux["log"]["terminate"] = ""
 
@@ -279,9 +312,11 @@ def predict_binder_complex(prediction_model, binder_sequence, mpnn_design_name, 
                 threshold = filters.get(filter_name, {}).get("threshold")
                 if threshold is not None:
                     if comparison == '>=' and prediction_metrics[metric_key] < threshold:
+                        print(f"Filter {filter_name} failed: {prediction_metrics[metric_key]} < {threshold}")
                         pass_af2_filters = False
                         filter_failures[filter_name] = filter_failures.get(filter_name, 0) + 1
                     elif comparison == '<=' and prediction_metrics[metric_key] > threshold:
+                        print(f"Filter {filter_name} failed: {prediction_metrics[metric_key]} > {threshold}")
                         pass_af2_filters = False
                         filter_failures[filter_name] = filter_failures.get(filter_name, 0) + 1
 
@@ -403,7 +438,9 @@ def add_helix_loss(self, weight=0):
       # define distogram
       dgram = outputs["distogram"]["logits"]
       dgram_bins = get_dgram_bins(outputs)
-      mask_2d = np.outer(np.append(np.zeros(self._target_len), np.ones(self._binder_len)), np.append(np.zeros(self._target_len), np.ones(self._binder_len)))
+      #mask_2d = np.outer(np.append(np.zeros(self._target_len), np.ones(self._binder_len)), np.append(np.zeros(self._target_len), np.ones(self._binder_len)))
+      mask_2d = np.append(np.zeros(self._target_len), np.ones(self._binder_len)) #np.outer(np.ones(self._len), np.ones(self._len))
+      print('in binder_helicity, mask_2d', mask_2d.shape, self._target_len, self._binder_len, self._len)
 
       x = _get_con_loss(dgram, dgram_bins, cutoff=6.0, binary=True)
       if offset is None:

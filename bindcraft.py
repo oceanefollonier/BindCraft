@@ -166,6 +166,7 @@ while True:
                 continue
             
             if advanced_settings["enable_mpnn"]:
+                print('running MPNN...')
                 # initialise MPNN counters
                 mpnn_n = 1
                 accepted_mpnn = 0
@@ -193,6 +194,7 @@ while True:
   
                 # check whether any sequences are left after amino acid rejection and duplication check, and if yes proceed with prediction
                 if mpnn_sequences:
+                    print('has mpnn sequences:', len(mpnn_sequences), mpnn_sequences)
                     # add optimisation for increasing recycles if trajectory is beta sheeted
                     if advanced_settings["optimise_beta"] and float(trajectory_beta) > 15:
                         advanced_settings["num_recycles_validation"] = advanced_settings["optimise_beta_recycles_valid"]
