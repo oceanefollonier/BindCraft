@@ -27,7 +27,7 @@ def binder_hallucination(design_name, starting_pdb, chain, target_hotspot_residu
     # initialise binder hallucination model
     af_model = mk_afdesign_model(protocol="binder", debug=False, data_dir=advanced_settings["af_params_dir"], 
                                 use_multimer=advanced_settings["use_multimer_design"], num_recycles=advanced_settings["num_recycles_design"],
-                                best_metric='loss',crop=True)
+                                best_metric='loss',crop=True, use_initial_guess=True)
 
     # sanity check for hotspots
     if target_hotspot_residues == "":
@@ -35,6 +35,8 @@ def binder_hallucination(design_name, starting_pdb, chain, target_hotspot_residu
 
     af_model.prep_inputs(pdb_filename=starting_pdb, chain=chain, binder_len=length, hotspot=target_hotspot_residues, seed=seed, rm_aa=advanced_settings["omit_AAs"],
                         rm_target_seq=advanced_settings["rm_template_seq_design"], rm_target_sc=advanced_settings["rm_template_sc_design"])
+
+    # af_model._inputs["seq_mask"] = np.concatenate([np.zeros(35),np.ones(15),np.zeros(42),np.ones(19),np.zeros(4),np.ones(72)])
 
     ### Update weights based on specified settings
     af_model.opt["weights"].update({"pae":advanced_settings["weights_pae_intra"],
@@ -92,14 +94,76 @@ def binder_hallucination(design_name, starting_pdb, chain, target_hotspot_residu
                                 sample_models=advanced_settings["sample_models"], save_best=True)
 
     elif advanced_settings["design_algorithm"] == '4stage':
+
+        # # print('after initialisation, af_model._inputs["batch"]["all_atom_positions"]', af_model._inputs["batch"]["all_atom_positions"].shape, af_model._inputs["batch"]["all_atom_positions"][0, :, :])
+        # # temporary, to remove: predict only on give designs
+        # # af_model._cfg.model.embeddings_and_evoformer.crop = False
+        # # af_model._model = af_model._get_model(af_model._cfg)
+        # af_model._args['recycle_mode'] = 'none'
+        # af_model._args['use_initial_guess'] = True
+        # print('before predict, af_model._inputs["bias"]', af_model._inputs["bias"].shape, af_model._inputs["bias"])
+
+        # # af_model._inputs["batch"]["all_atom_positions"][:, :, :] = af_model._inputs["all_atom_positions"]
+        # # af_model._inputs["template_all_atom_positions"][:, :, :, :] = af_model._inputs["all_atom_positions"]
+        # af_model._inputs['rm_template'][:] = False
+        # af_model._inputs['rm_template_seq'][:] = False
+        # af_model._inputs['rm_template_sc'][:] = False
+        # # af_model._update_template(af_model._inputs, af_model.key())
+
+        # # seq_final = "SLQELIESFWQGEPMGGIQPTSAEWAELSNYVWHIIQQMEKEPHISSEARRWFRQIHQMLQIFASDPTISTPWKLHMMYEYMRDVKSYLRKHGEWPYVQKMIDMM"
+        # # seq_final = "TLYQIVKHMMMQTEEQYRWYQHQMQTGSMNVRPGSYEWRTFIFQYYLIKHIYEHLKRRHEELERRK"
+        # seq_final = "SIKWTETMDESDFKRFMRHLIDWAQHRTKRHKSKSDKKAAWEFLANFLKMHPGPEDTTKEVQEQVENHLSSM"
+        # print('before predict, af_model._inputs["seq_mask"]', af_model._inputs["seq_mask"].shape)
+        # # af_model._inputs["seq_mask"] = np.concatenate([np.ones(35),np.zeros(15),np.ones(42),np.zeros(19),np.ones(4),np.zeros(72)])
+        # print('before predict after change, af_model._inputs["seq_mask"]', af_model._inputs["seq_mask"].shape)
+        # af_model.predict(seq=seq_final, num_recycles=0, models=design_models, num_models=1, sample_models=advanced_settings["sample_models"], save_final=True)
+        # print('after predict, af_model._tmp["best"]["aux"]["log"]', af_model._tmp["best"]["aux"]["log"]['pae'], af_model._tmp["best"]["aux"]["log"]['plddt'], af_model._tmp["best"]["aux"]["log"]['i_pae'], af_model._tmp["best"]["aux"]["log"]['i_con'], af_model._tmp["best"]["aux"]["log"]['con'], af_model._tmp["best"]["aux"]["log"]['ptm'], af_model._tmp["best"]["aux"]["log"]['i_ptm'], af_model._tmp["best"]["aux"]["log"]['rg'], af_model._tmp["best"]["aux"]["log"]['helix'], af_model._tmp["best"]["aux"]["log"]['exp_res'], af_model._tmp["best"]["aux"]["log"]['loss'])
+        # print('after predict, save model under path', model_pdb_path.replace(".pdb", "_predict_crop_crop.pdb"))
+        # print('after predict,  af_model._tmp["best"]["aux"]', af_model._tmp["best"]["aux"]['loss'])
+        # print('after predict,  af_model._tmp["best"]["aux"] prev', af_model._tmp["best"]["aux"]['prev'].keys())
+        # af_model.save_pdb(model_pdb_path.replace(".pdb", "_predict_crop_crop.pdb"))
+        # pae_matrix = np.array(af_model._tmp["best"]["aux"]["pae"])
+        # np.save(model_pdb_path.replace(".pdb", "_pae_predict_crop_crop.npy"), pae_matrix)
+        # np.save(model_pdb_path.replace(".pdb", "_pair_crop_crop.npy"), af_model._tmp["best"]["aux"]['prev']['prev_pair'])
+        # np.save(model_pdb_path.replace(".pdb", "_msa_first_row_crop_crop.npy"), af_model._tmp["best"]["aux"]['prev']['prev_msa_first_row'])
+        # np.save(model_pdb_path.replace(".pdb", "_pos_crop_crop.npy"), af_model._tmp["best"]["aux"]['prev']['prev_pos'])
+
+        # # # predict crop-full
+        # # af_model._cfg.model.embeddings_and_evoformer.crop = False
+        # # af_model._model = af_model._get_model(af_model._cfg)
+        # # af_model._args['recycle_mode'] = 'none'
+        # # af_model._args['use_initial_guess'] = True
+
+        # # af_model._inputs["batch"]["all_atom_positions"][115:, :, :] = af_model._tmp["best"]["aux"]["atom_positions"][34:, :, :]
+        # # af_model._inputs["template_all_atom_positions"][:, 115:, :, :] = af_model._tmp["best"]["aux"]["atom_positions"][34:, :, :]
+        # # af_model._inputs['rm_template'][:] = False
+        # # af_model._inputs['rm_template_seq'][:] = False
+        # # af_model._inputs['rm_template_sc'][:] = False
+        # # af_model._update_template(af_model._inputs, af_model.key())
+        # # af_model._cfg.model.embeddings_and_evoformer.crop = False
+
+        # # af_model.predict(seq=seq_final, num_recycles=0, models=design_models, num_models=1, sample_models=advanced_settings["sample_models"], save_final=True)
+        # # print('after repredict, save model under path', model_pdb_path.replace(".pdb", "_predict_crop_full.pdb"))
+        # # af_model.save_pdb(model_pdb_path.replace(".pdb", "_predict_crop_full.pdb"))
+        # # pae_matrix = np.array(af_model._tmp["best"]["aux"]["pae"])
+        # # np.save(model_pdb_path.replace(".pdb", "_pae_predict_crop_full.npy"), pae_matrix)
+        # # np.save(model_pdb_path.replace(".pdb", "_pair_crop_full.npy"), af_model._tmp["best"]["aux"]['prev']['prev_pair'])
+        # # np.save(model_pdb_path.replace(".pdb", "_msa_first_row_crop_full.npy"), af_model._tmp["best"]["aux"]['prev']['prev_msa_first_row'])
+        # # np.save(model_pdb_path.replace(".pdb", "_pos_crop_full.npy"), af_model._tmp["best"]["aux"]['prev']['prev_pos'])
+        # print(stop)
+
         # initial logits to prescreen trajectory
         print("Stage 1: Test Logits")
-        af_model.design_logits(iters=50, e_soft=0.9, models=design_models, num_models=1, sample_models=advanced_settings["sample_models"], save_best=True)
+        af_model.design_logits(iters=50, e_soft=0.9, models=design_models, num_models=1, sample_models=advanced_settings["sample_models"], save_best=True) #50
+        
+
         
         # determine pLDDT of best iteration according to lowest 'loss' value
         initial_plddt = get_best_plddt(af_model, length)
-        print('saving temp pdb under', model_pdb_path)
-        af_model.save_pdb(model_pdb_path)
+        # print('saving temp pdb under', model_pdb_path)
+        # af_model.save_pdb(model_pdb_path)
+        # af_model.save_pdb(model_pdb_path.replace('.pdb','_initial.pdb'))
+        # print(stop)
         # if best iteration has high enough confidence then continue
         if initial_plddt > 0.65:
             print("Initial trajectory pLDDT good, continuing: "+str(initial_plddt))
@@ -152,17 +216,12 @@ def binder_hallucination(design_name, starting_pdb, chain, target_hotspot_residu
                 if onehot_plddt > 0.65:
                     # perform greedy mutation optimisation
                     print("One-hot trajectory pLDDT good, continuing: "+str(onehot_plddt))
-                    # # af_model.opt["weights"].update({"crop":False})
-                    # af_model._cfg.model.embeddings_and_evoformer.crop = False
-                    # print('test: rerunning _get_model')
-                    # af_model._model = af_model._get_model(af_model._cfg)
-                    # print('test: after getting new model')
                     if advanced_settings["greedy_iterations"] >= 1:
                         print("Stage 4: PSSM Semigreedy Optimisation")
-                        print('greedy_tries', greedy_tries)
+                        # print('greedy_tries', greedy_tries)
                         af_model.design_pssm_semigreedy(soft_iters=0, hard_iters=advanced_settings["greedy_iterations"], tries=greedy_tries, models=design_models, 
                                                         num_models=1, sample_models=advanced_settings["sample_models"], ramp_models=False, save_best=True)
-                        af_model.save_pdb(model_pdb_path)
+                        #af_model.save_pdb(model_pdb_path)
 
                 else:
                     update_failures(failure_csv, 'Trajectory_one-hot_pLDDT')
@@ -181,34 +240,72 @@ def binder_hallucination(design_name, starting_pdb, chain, target_hotspot_residu
         exit()
         return
 
-    ### save trajectory PDB
-    # first get the best structure with the full target
-    # print('final best',af_model._tmp["best"])
-
+    ## save trajectory PDB
+    # # first get the best structure with the full target
+    # # print('final best',af_model._tmp["best"]["aux"]["seq"]["logits"].shape)
+    # # print('final best positions',af_model._tmp["best"]["aux"]["atom_positions"].shape, af_model._tmp["best"]["aux"]["atom_positions"][-1, :, :])
     final_plddt = get_best_plddt(af_model, length)
-    print("saving pre-final pdb under", model_pdb_path.replace(".pdb", "_pre-final.pdb"))
-    af_model.save_pdb(model_pdb_path.replace(".pdb", "_pre-final.pdb"))
+    # print("saving pre-final pdb with final_plddt", final_plddt, "under", model_pdb_path.replace(".pdb", "_pre-final.pdb"))
+    # af_model.save_pdb(model_pdb_path.replace(".pdb", "_pre-final.pdb"))
+    # af_model._tmp["best_prefinal"] = af_model._tmp["best"]
+    # # pickle.dump(af_model._tmp["best"], open(model_pdb_path.replace(".pdb", "_best_prefinal.pkl"), "wb"))
 
     af_model._cfg.model.embeddings_and_evoformer.crop = False
+    af_model._cfg.model.embeddings_and_evoformer.final = True
     af_model._model = af_model._get_model(af_model._cfg)
     af_model._args['recycle_mode'] = 'none'
-    print('in final, af_model._tmp["best"]', af_model._tmp["best"].keys())
-    if hasattr(af_model._tmp["best"],"aux"):
-      print('in final, getting seq from aux')
-      seq_final = af_model._tmp["best"].aux["seq"]["logits"].argmax(-1)
-      af_model.batch["dgram"] = af_model._tmp["best"].aux["dgram"]
-      af_model.batch["prev_pos"] = af_model._tmp["best"].aux["prev_pos"]
-      print('in final, all_atom_positions', af_model.batch["all_atom_positions"].shape, af_model._tmp["best"].aux["all_atom_positions"].shape)
+    af_model._args['use_initial_guess'] = True
+    if "aux" in af_model._tmp["best"]:
+    #   print('in final, getting seq from aux')
+      seq_final = af_model._tmp["best"]["aux"]["seq"]["logits"].argmax(-1)
+    #   print('in final, aatype', af_model._tmp["best"]["aux"]["aatype"])
+    #   print('in final, seq_final', seq_final)
+    #   print('in final, af_model._tmp["best"]["aux"]', af_model._tmp["best"]["aux"].keys())
+    #   pae_matrix = np.array(af_model._tmp["best"]["aux"]["pae"])
+    #   np.save(model_pdb_path.replace(".pdb", "_pae_best.npy"), pae_matrix)
+    #   print('in final, _inputs', af_model._inputs.keys())
+    #   print('in final, ._inputs batch', af_model._inputs["batch"].keys())
+    #   print('in final, template_all_atom_mask', af_model._inputs["template_all_atom_mask"].shape, af_model._tmp["best"]["aux"]["atom_mask"].shape)
+    #   print('in final, template_all_atom_positions', af_model._inputs["template_all_atom_positions"].shape, af_model._tmp["best"]["aux"]["atom_positions"].shape)
+      L_full, _, _ = af_model._inputs["batch"]["all_atom_positions"].shape
+      L_cropped, _, _ = af_model._tmp["best"]["aux"]["atom_positions"].shape
+    #   print('printing first in final af_model._tmp["best"]["aux"]["atom_positions"]', af_model._tmp["best"]["aux"]["atom_positions"][269:, :, :])
+    #   print('printing end in final af_model._tmp["best"]["aux"]["atom_positions"]', af_model._tmp["best"]["aux"]["atom_positions"][:269, :, :])
+    #   print('printing first in final af_model._tmp["best"]["aux"]["atom_mask"]', af_model._tmp["best"]["aux"]["atom_mask"][269:, :])
+    #   print('printing end in final af_model._tmp["best"]["aux"]["atom_mask"]', af_model._tmp["best"]["aux"]["atom_mask"][:269, :])
+    #   print('final atom positions #1', af_model._tmp["best"]["aux"]["atom_positions"].shape) 
+    #   af_model._inputs["batch"]["all_atom_positions"][115:, :, :] = af_model._tmp["best"]["aux"]["atom_positions"][34:, :, :] # 115  34
+    #   af_model._inputs["template_all_atom_positions"][:, 115:, :, :] = af_model._tmp["best"]["aux"]["atom_positions"][34:, :, :]
+      af_model._inputs["batch"]["all_atom_positions"][494:, :, :] = af_model._tmp["best"]["aux"]["atom_positions"][275:, :, :] # 115  34
+      af_model._inputs["template_all_atom_positions"][:, 494:, :, :] = af_model._tmp["best"]["aux"]["atom_positions"][275:, :, :]
+    #   af_model._inputs["template_all_atom_mask"][:,115:, :] = af_model._tmp["best"]["aux"]["atom_mask"][34:, :]
+    #   af_model._inputs["template_pseudo_beta"][:,115:, :] = af_model._tmp["best"]["aux"]["atom_positions"][34:, :, :]
+    #   af_model._inputs["template_pseudo_beta_mask"][:,115:, :] = af_model._tmp["best"]["aux"]["atom_mask"][34:, :]
+      af_model._inputs['rm_template'][:] = False
+      af_model._inputs['rm_template_seq'][:] = False
+      af_model._inputs['rm_template_sc'][494:] = False
+      af_model._inputs['rm_template_sc'][:494] = True
+      af_model._update_template(af_model._inputs, af_model.key())
+    #   print('after update template, af_model._inputs["template_all_atom_positions"]', af_model._inputs["template_all_atom_positions"][:, -1, :, :])
+    #   af_model.batch["prev_pos"] = af_model._tmp["best"]["aux"]["prev_pos"]
     else:
-      print('in final, getting seq from params and inputs')
+    #   print('in final, getting seq from params and inputs')
       seq_final = (af_model._params["seq"] + af_model._inputs["bias"]).argmax(-1)
+
     af_model.predict(seq=seq_final, num_recycles=0, models=design_models, num_models=1, sample_models=advanced_settings["sample_models"], save_final=True)
-    print('after final prediction, save final model under path', model_pdb_path)
-    af_model.save_pdb(model_pdb_path)
+    # print('after final prediction, save final model under path', model_pdb_path)
+    # af_model.save_pdb(model_pdb_path)
+    # pae_matrix = np.array(af_model._tmp["best"]["aux"]["pae"])
+    # np.save(model_pdb_path.replace(".pdb", "_pae_final.npy"), pae_matrix)
+    # print(stop)
 
     final_plddt = get_best_plddt(af_model, length)
-    print("saving final pdb under", model_pdb_path)
+    # print("saving final pdb with final_plddt", final_plddt, "under", model_pdb_path)
+    # pae_matrix = np.array(af_model._tmp["best"]["aux"]["pae"])
+    # np.save(model_pdb_path.replace(".pdb", "_pae_final.npy"), pae_matrix)
+    # # pickle.dump(af_model._tmp["best"], open(model_pdb_path.replace(".pdb", "_best_final.pkl"), "wb"))
     af_model.save_pdb(model_pdb_path)
+    # af_model.save_pdb(model_pdb_path.replace('.pdb','_final.pdb'))
     af_model.aux["log"]["terminate"] = ""
 
     # let's check whether the trajectory is worth optimising by checking confidence, clashes, and contacts
@@ -284,6 +381,7 @@ def predict_binder_complex(prediction_model, binder_sequence, mpnn_design_name, 
         complex_pdb = os.path.join(design_paths["MPNN"], f"{mpnn_design_name}_model{model_num+1}.pdb")
         if not os.path.exists(complex_pdb):
             # predict model
+            # print('in predict_binder_complex, seq', binder_sequence)
             prediction_model.predict(seq=binder_sequence, models=[model_num], num_recycles=advanced_settings["num_recycles_validation"], verbose=False)
             prediction_model.save_pdb(complex_pdb)
             prediction_metrics = copy_dict(prediction_model.aux["log"]) # contains plddt, ptm, i_ptm, pae, i_pae
@@ -431,16 +529,23 @@ def add_helix_loss(self, weight=0):
     def binder_helicity(inputs, outputs):  
       if "offset" in inputs:
         offset = inputs["offset"]
+        # print('in binder_helicity, offset from inputs offset',offset.shape)
       else:
         idx = inputs["residue_index"].flatten()
         offset = idx[:,None] - idx[None,:]
+        # print('in binder_helicity, offset from inputs residue_index',offset.shape)
 
       # define distogram
       dgram = outputs["distogram"]["logits"]
       dgram_bins = get_dgram_bins(outputs)
       #mask_2d = np.outer(np.append(np.zeros(self._target_len), np.ones(self._binder_len)), np.append(np.zeros(self._target_len), np.ones(self._binder_len)))
-      mask_2d = np.append(np.zeros(self._target_len), np.ones(self._binder_len)) #np.outer(np.ones(self._len), np.ones(self._len))
-      print('in binder_helicity, mask_2d', mask_2d.shape, self._target_len, self._binder_len, self._len)
+    #   print('in binder_helicity, mask_2d',self._target_len, self._binder_len, self._len)
+    #   print('in binder_helicity, offset.shape',offset.shape)
+    #   if offset.shape[0] == self._len:
+    #     mask_2d = np.outer(np.ones(self._len), np.ones(self._len))
+    #   else:
+      mask_2d = np.append(np.zeros(self._target_len), np.ones(self._binder_len)) #for non cropped & cropped models!
+    #   mask_2d = np.outer(np.ones(self._len), np.ones(self._len))
 
       x = _get_con_loss(dgram, dgram_bins, cutoff=6.0, binary=True)
       if offset is None:
@@ -450,6 +555,7 @@ def add_helix_loss(self, weight=0):
           helix_loss = jnp.diagonal(x * mask_2d,3).sum() + (jnp.diagonal(mask_2d,3).sum() + 1e-8)
       else:
         mask = offset == 3
+        # print('in binder_helicity, mask',mask.shape, mask_2d.shape)
         if mask_2d is not None:
           mask = jnp.where(mask_2d,mask,0)
         helix_loss = jnp.where(mask,x,0.0).sum() / (mask.sum() + 1e-8)

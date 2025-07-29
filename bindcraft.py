@@ -44,11 +44,13 @@ design_paths = generate_directories(target_settings["design_path"])
 trajectory_labels, design_labels, final_labels = generate_dataframe_labels()
 
 trajectory_csv = os.path.join(target_settings["design_path"], 'trajectory_stats.csv')
+trajectory_csv_prefinal = os.path.join(target_settings["design_path"], 'trajectory_stats_prefinal.csv')
 mpnn_csv = os.path.join(target_settings["design_path"], 'mpnn_design_stats.csv')
 final_csv = os.path.join(target_settings["design_path"], 'final_design_stats.csv')
 failure_csv = os.path.join(target_settings["design_path"], 'failure_csv.csv')
 
 create_dataframe(trajectory_csv, trajectory_labels)
+create_dataframe(trajectory_csv_prefinal, trajectory_labels)
 create_dataframe(mpnn_csv, design_labels)
 create_dataframe(final_csv, final_labels)
 generate_filter_pass_csv(failure_csv, args.filters)
@@ -106,14 +108,17 @@ while True:
         print("Starting trajectory: "+design_name)
 
         ### Begin binder hallucination
+        # print('at start, target_hotspot_residues', target_settings["target_hotspot_residues"])
         trajectory = binder_hallucination(design_name, target_settings["starting_pdb"], target_settings["chains"],
                                             target_settings["target_hotspot_residues"], length, seed, helicity_value,
                                             design_models, advanced_settings, design_paths, failure_csv)
         trajectory_metrics = copy_dict(trajectory._tmp["best"]["aux"]["log"]) # contains plddt, ptm, i_ptm, pae, i_pae
+        # trajectory_metrics_prefinal = copy_dict(trajectory._tmp["best_prefinal"]["aux"]["log"]) # contains plddt, ptm, i_ptm, pae, i_pae
         trajectory_pdb = os.path.join(design_paths["Trajectory"], design_name + ".pdb")
 
         # round the metrics to two decimal places
         trajectory_metrics = {k: round(v, 2) if isinstance(v, float) else v for k, v in trajectory_metrics.items()}
+        # trajectory_metrics_prefinal = {k: round(v, 2) if isinstance(v, float) else v for k, v in trajectory_metrics_prefinal.items()}
 
         # time trajectory
         trajectory_time = time.time() - trajectory_start_time
@@ -161,6 +166,18 @@ while True:
                                 trajectory_time_text, traj_seq_notes, settings_file, filters_file, advanced_file]
             insert_data(trajectory_csv, trajectory_data)
 
+            # # save trajectory statistics into CSV
+            # trajectory_data_prefinal = [design_name, advanced_settings["design_algorithm"], length, seed, helicity_value, target_settings["target_hotspot_residues"], trajectory_sequence, trajectory_interface_residues, 
+            #                     trajectory_metrics_prefinal['plddt'], trajectory_metrics_prefinal['ptm'], trajectory_metrics_prefinal['i_ptm'], trajectory_metrics_prefinal['pae'], trajectory_metrics_prefinal['i_pae'],
+            #                     trajectory_i_plddt, trajectory_ss_plddt, num_clashes_trajectory, num_clashes_relaxed, trajectory_interface_scores['binder_score'],
+            #                     trajectory_interface_scores['surface_hydrophobicity'], trajectory_interface_scores['interface_sc'], trajectory_interface_scores['interface_packstat'],
+            #                     trajectory_interface_scores['interface_dG'], trajectory_interface_scores['interface_dSASA'], trajectory_interface_scores['interface_dG_SASA_ratio'],
+            #                     trajectory_interface_scores['interface_fraction'], trajectory_interface_scores['interface_hydrophobicity'], trajectory_interface_scores['interface_nres'], trajectory_interface_scores['interface_interface_hbonds'],
+            #                     trajectory_interface_scores['interface_hbond_percentage'], trajectory_interface_scores['interface_delta_unsat_hbonds'], trajectory_interface_scores['interface_delta_unsat_hbonds_percentage'],
+            #                     trajectory_alpha_interface, trajectory_beta_interface, trajectory_loops_interface, trajectory_alpha, trajectory_beta, trajectory_loops, trajectory_interface_AA, trajectory_target_rmsd, 
+            #                     trajectory_time_text, traj_seq_notes, settings_file, filters_file, advanced_file]
+            # insert_data(trajectory_csv_prefinal, trajectory_data_prefinal)
+
             if not trajectory_interface_residues:
                 print("No interface residues found for "+str(design_name)+", skipping MPNN optimization")
                 continue
@@ -194,7 +211,7 @@ while True:
   
                 # check whether any sequences are left after amino acid rejection and duplication check, and if yes proceed with prediction
                 if mpnn_sequences:
-                    print('has mpnn sequences:', len(mpnn_sequences), mpnn_sequences)
+                    # print('has mpnn sequences:', len(mpnn_sequences), mpnn_sequences)
                     # add optimisation for increasing recycles if trajectory is beta sheeted
                     if advanced_settings["optimise_beta"] and float(trajectory_beta) > 15:
                         advanced_settings["num_recycles_validation"] = advanced_settings["optimise_beta_recycles_valid"]
@@ -203,7 +220,7 @@ while True:
                     clear_mem()
                     # compile complex prediction model
                     complex_prediction_model = mk_afdesign_model(protocol="binder", num_recycles=advanced_settings["num_recycles_validation"], data_dir=advanced_settings["af_params_dir"], 
-                                                                use_multimer=multimer_validation, use_initial_guess=advanced_settings["predict_initial_guess"], use_initial_atom_pos=advanced_settings["predict_bigbang"])
+                                                                use_multimer=multimer_validation, use_initial_guess=advanced_settings["predict_initial_guess"], use_initial_atom_pos=advanced_settings["predict_bigbang"],crop=False)
                     if advanced_settings["predict_initial_guess"] or advanced_settings["predict_bigbang"]:
                         complex_prediction_model.prep_inputs(pdb_filename=trajectory_pdb, chain='A', binder_chain='B', binder_len=length, use_binder_template=True, rm_target_seq=advanced_settings["rm_template_seq_predict"],
                                                             rm_target_sc=advanced_settings["rm_template_sc_predict"], rm_template_ic=True)
@@ -214,7 +231,7 @@ while True:
                     # compile binder monomer prediction model
                     binder_prediction_model = mk_afdesign_model(protocol="hallucination", use_templates=False, initial_guess=False, 
                                                                 use_initial_atom_pos=False, num_recycles=advanced_settings["num_recycles_validation"], 
-                                                                data_dir=advanced_settings["af_params_dir"], use_multimer=multimer_validation)
+                                                                data_dir=advanced_settings["af_params_dir"], use_multimer=multimer_validation,crop=False)
                     binder_prediction_model.prep_inputs(length=length)
 
                     # iterate over designed sequences        
